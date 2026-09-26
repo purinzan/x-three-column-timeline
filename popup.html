@@ -13,6 +13,14 @@
       <label><input type="radio" name="mode" value="on"><span>有効 <small>3列で表示</small></span></label>
       <label><input type="radio" name="mode" value="off"><span>無効 <small>X本来の表示</small></span></label>
     </fieldset>
+    <fieldset id="auto-settings" disabled>
+      <legend>自動スクロール</legend>
+      <label><input type="checkbox" id="auto-scroll"><span>ON / OFF</span></label>
+      <label for="auto-speed">速さ
+        <select id="auto-speed"><option value="slow">ゆっくり</option><option value="normal">標準</option><option value="fast">速い</option></select>
+      </label>
+      <p>ONにしてこの画面を閉じると開始。操作中は停止し、操作終了から0.5秒後に滑らかに再開。入力・文字選択・メニュー表示中は待機。投稿詳細を開くとOFFになります。</p>
+    </fieldset>
     <p id="status" role="status" aria-live="polite">設定を読み込み中…</p>
     <script src="popup.js"></script>
   </body>

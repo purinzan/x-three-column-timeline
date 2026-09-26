@@ -32,6 +32,9 @@ html.x3t-active .x3t-card {
 }
 html.x3t-active .x3t-card {
   margin-left: calc(8px + var(--x3t-column, 0) * (100% - 8px) / 3) !important;
+}
+html.x3t-active .x3t-card,
+html.x3t-active .x3t-module {
   transform: translateY(calc(var(--x3t-offset, 0px) - var(--x3t-native-top, 0px)));
   pointer-events: auto;
 }

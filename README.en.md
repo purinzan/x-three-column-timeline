@@ -2,14 +2,15 @@
 
 # X 3-Column Timeline
 
-An unofficial Chrome extension that displays your X home timeline in three independent columns with less empty space. **v0.8.5 / MIT**
+An unofficial Chrome extension that displays your X home timeline and post search results in three independent columns with less empty space. **v0.9.1 / MIT**
 
 ![A real X home timeline in three columns](assets/timeline.jpg)
 
 - **Three columns with stable lane assignments**: new posts go into the shortest column. Additional posts load through X's native loading behavior.
 - **Bottom navigation**: Home, Search, Notifications, Chat, and Profile. The square button on the left opens X's native menu.
 - **Enable or disable from the extension icon**: switch between three columns and X's original layout. Your preference is saved locally in the browser.
-- Tall media is automatically reduced. Only the home timeline (`/home`) is supported.
+- **Auto-scroll**: on/off and three speeds from the icon. Starts after closing settings; smoothly resumes 0.5 seconds after manual input ends. Pauses for typing, text selection, and menus; opening post details turns it off.
+- Tall media is automatically reduced. Supports Home and Top/Latest post search; People, Media, and video search remain unchanged.
 
 ## Demo
 
@@ -19,7 +20,7 @@ An unofficial Chrome extension that displays your X home timeline in three indep
 
 A roughly 10-second recording of scrolling on X, cropped to remove the browser toolbar. The MP4 plays at the original speed; the GIF is a lightweight preview. Performance varies with your device and connection.
 
-Click the extension icon to toggle the layout:
+Use the extension icon for settings. The images and video were captured with an older version; current settings also include auto-scroll and speed controls:
 
 ![Enable and disable controls](assets/settings.jpg)
 
@@ -36,11 +37,11 @@ To update, replace the files, reload the extension on the extensions page, and r
 
 This is an experimental extension, not affiliated with X. Changes to X's page structure or your environment may cause layout issues. Visual order may differ from the original post order and keyboard navigation order. Unread badge mirroring is not supported. Compatibility with every window width, zoom level, or other extension, and long-session stability are not guaranteed.
 
-No custom server, analytics, or external data transmission. The `storage` permission is used only to save the on/off preference locally. X page elements and post identifiers are used in memory for layout, but post text and account information are not persisted. X's own network activity is separate.
+No custom server, analytics, or external data transmission. The `storage` permission is used to save layout and auto-scroll on/off preferences and speed locally. X page elements and post identifiers are used in memory for layout, but post text and account information are not persisted. X's own network activity is separate.
 
 ## Development
 
-No build step or npm dependencies. Run `node test/popup.test.js`, `node test/masonry.test.js`, and `node test/layout.test.js` with Node.js.
+No build step or npm dependencies. Run `node test/autoscroll.test.js`, `node test/popup.test.js`, `node test/masonry.test.js`, and `node test/layout.test.js` with Node.js.
 
 Run `python3 -m http.server 8765 --bind 127.0.0.1` and open `/test/fixture.html` on that server for browser checks. Reload between scenarios. Add `?demo` for a mock recording layout. Some reading-position tests may not find a reference post at certain viewport sizes.
 

@@ -3,6 +3,7 @@
   const POST = 'article[data-testid="tweet"]';
   const CELL = '[data-testid="cellInnerDiv"]';
   let enabled = true, stream = null, scheduled = false;
+  let pageKey = location.pathname + location.search;
   const records = new Map();
   const laneAssignments = new Map();
   let blockSequence = 0;
@@ -69,7 +70,10 @@
     }
   });
   function active() {
-    return enabled && (/^\/home\/?$/.test(location.pathname) || ['localhost', '127.0.0.1'].includes(location.hostname));
+    const filter = new URLSearchParams(location.search).get('f') || '';
+    const posts = /^\/search\/?$/.test(location.pathname) && ['', 'live'].includes(filter);
+    const fixture = ['localhost', '127.0.0.1'].includes(location.hostname) && location.pathname === '/test/fixture.html';
+    return enabled && (/^\/home\/?$/.test(location.pathname) || posts || fixture);
   }
   function cleanCell(cell, content) {
     resize.unobserve(content);
@@ -78,7 +82,7 @@
     bindings.delete(cell);
     cell.classList.remove('x3t-item', 'x3t-empty');
     for (const name of ['--x3t-share', '--x3t-offset', '--x3t-column', '--x3t-native-top']) cell.style.removeProperty(name);
-    content.classList.remove('x3t-card');
+    content.classList.remove('x3t-card', 'x3t-module');
     mounted.delete(cell);
   }
   function clear() {
@@ -103,6 +107,13 @@
   }
   function apply() {
     scheduled = false;
+    const nextPageKey = location.pathname + location.search;
+    if (pageKey !== nextPageKey) {
+      // Search can reuse its container when the query/filter changes. Never
+      // carry the previous results' grouping into the new result set.
+      clear();
+      pageKey = nextPageKey;
+    }
     document.documentElement.classList.toggle('x3t-active', active());
     X3Reading.sync(active());
     if (!active()) { clear(); return; }
@@ -127,7 +138,8 @@
     structureDirty = false;
     for (const cell of changed) {
       const record = bindings.get(cell);
-      if (mounted.get(cell) !== cell.firstElementChild || (record && record.key !== keyFor(cell))) rebuild = true;
+      if (mounted.get(cell) !== cell.firstElementChild || (record &&
+          (record.key !== keyFor(cell) || record.module !== !cell.querySelector(POST)))) rebuild = true;
     }
     if (rebuild) for (const [cell, content] of mounted) if (!stream.contains(cell)) cleanCell(cell, content);
     // Check the actual article, not just the existence of its DOM node.
@@ -147,7 +159,7 @@
     for (const [cell, article] of articles) {
       if (!article) {
         // Some blockers remove the article instead of hiding it.
-        if (mounted.has(cell) && !cell.textContent.trim() && !cell.querySelector('img,video,button,[role="progressbar"]')) {
+        if (bindings.get(cell)?.module === false && !cell.textContent.trim() && !cell.querySelector('img,video,button,[role="progressbar"]')) {
           if (hiddenStates.get(cell) !== true) visibilityChanged = true;
           hiddenStates.set(cell, true);
         }
@@ -162,6 +174,21 @@
     // Rare visibility transitions must release the old slot and regroup.
     // This is not run for ordinary scrolls or image height changes.
     if (visibilityChanged) { records.clear(); rebuild = true; }
+    if (rebuild) {
+      const entries = [];
+      for (const cell of stream.children) {
+        if (hidden.has(cell)) continue;
+        entries.push(cell.matches(CELL) && cell.children.length === 1
+          ? records.get(keyFor(cell)) ?? {} : null);
+      }
+      if (X3Layout.needsRegroup(entries)) {
+        // X may insert/reorder posts inside retained blocks. Their old native
+        // slices are no longer contiguous, so using them would overlap cards.
+        // Keep each post's lane; rebuild only grouping, in current DOM order.
+        records.clear();
+        blockSequence = 0;
+      }
+    }
     let row = null;
     const visibleRows = new Set();
     if (!rebuild) for (const cell of changed) {
@@ -169,7 +196,7 @@
       if (record && cell.parentElement === stream) visibleRows.add(record.row);
     }
     for (const cell of rebuild ? stream.children : []) {
-      if (!cell.matches(CELL) || (!cell.querySelector(POST) && !hidden.has(cell)) || cell.children.length !== 1) { row = null; continue; }
+      if (!cell.matches(CELL) || cell.children.length !== 1) { row = null; continue; }
       const content = cell.firstElementChild;
       if (hidden.has(cell)) {
         const previous = bindings.get(cell);
@@ -189,11 +216,12 @@
       }
       cell.classList.toggle('x3t-empty', false);
       const key = keyFor(cell);
+      const module = !cell.querySelector(POST);
       let record = records.get(key);
       if (!record) {
         // Keep a bounded candidate block open for incremental arrivals.
         // Only append directly after the retained tail, never into the middle
-        // of a recycled block or across a native full-width module.
+        // of a recycled block. Native modules participate in the same layout.
         let next = row?.items.at(-1)?.cell?.nextElementSibling;
         while (next && hidden.has(next)) next = next.nextElementSibling;
         if (!X3Layout.canAppend(row) || next !== cell) {
@@ -201,7 +229,7 @@
           row = { items: [], limit: 30, sequence: blockSequence++, previous: previousBlock, carry: previousBlock?.endCarry ?? [0,0,0] };
           if (previousBlock) previousBlock.next = row;
         }
-        record = { key, row, column: laneAssignments.get(key), height: 0 };
+        record = { key, row, module, column: module ? -1 : laneAssignments.get(key), height: 0 };
         row.items.push(record);
         records.set(key, record);
       } else row = record.row;
@@ -214,11 +242,12 @@
       if (mounted.get(cell) !== content) {
         if (mounted.has(cell)) cleanCell(cell, mounted.get(cell));
         cell.classList.add('x3t-item');
-        content.classList.add('x3t-card');
         setStyle(cell, '--x3t-column', String(record.column ?? 0));
         mounted.set(cell, content);
         resize.observe(content);
       }
+      content.classList.toggle('x3t-card', !module);
+      content.classList.toggle('x3t-module', module);
       record.cell = cell;
       record.content = content;
       bindings.set(cell, record);
@@ -255,7 +284,7 @@
         row.endCarry = result.carry;
         row.items.forEach((item,index) => {
           item.column = result.columns[index];
-          laneAssignments.set(item.key, item.column);
+          if (!item.module) laneAssignments.set(item.key, item.column);
         });
         row.layoutHeights = heights;
         row.layoutCarry = [...row.carry];

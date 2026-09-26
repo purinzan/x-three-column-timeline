@@ -18,6 +18,10 @@
       const href = source?.getAttribute('href');
       if (href && link.getAttribute('href') !== href) link.setAttribute('href', href);
       if (href) link.removeAttribute('aria-disabled');
+      const selected = index === 0 ? /^\/home\/?$/.test(location.pathname)
+        : index === 1 && /^\/(search|explore)\/?$/.test(location.pathname);
+      if (selected) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
     }
   }
   function createNav() {
@@ -28,7 +32,6 @@
     navItems.forEach(([label, selector, path], index) => {
       const link = document.createElement('a');
       link.setAttribute('aria-disabled', 'true');
-      if (index === 0) link.setAttribute('aria-current', 'page');
       link.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+path+'"/></svg><span>'+label+'</span>';
       link.onclick = event => {
         const source = document.querySelector('header[role="banner"]')?.querySelector(selector);
@@ -81,7 +84,10 @@
     root.classList.add('x3t-compact');
     if (bottomNav?.isConnected) {
       // Retry only while X's navigation is still mounting; no scroll polling.
-      if (bottomNav?.querySelector('[aria-disabled]')) syncNav();
+      if (bottomNav?.querySelector('[aria-disabled]') || bottomNav.dataset.path !== location.pathname) {
+        syncNav();
+        bottomNav.dataset.path = location.pathname;
+      }
       return;
     }
     menu = document.createElement('button');
@@ -127,7 +133,7 @@
     return changed;
   }
   function beforeLayout() {
-    if (anchor || scrollY < 1 || opened) return;
+    if (anchor || scrollY < 1 || opened || globalThis.X3AutoScroll?.isMoving()) return;
     // Hit-test a few fixed points, not every post on every scroll.
     for (const y of [Math.min(160, innerHeight / 3), innerHeight / 2]) {
       for (const x of [innerWidth / 6, innerWidth / 2, innerWidth * 5 / 6]) {
@@ -147,7 +153,7 @@
     frame = requestAnimationFrame(() => {
       frame = requestAnimationFrame(() => {
         const saved = anchor; anchor = null; frame = 0;
-        if (!saved || saved.input !== inputVersion || !saved.card.isConnected || Math.abs(scrollY - saved.scroll) > 1) return;
+        if (!saved || globalThis.X3AutoScroll?.isMoving() || saved.input !== inputVersion || !saved.card.isConnected || Math.abs(scrollY - saved.scroll) > 1) return;
         const delta = saved.card.getBoundingClientRect().top - saved.top;
         if (Math.abs(delta) > 1 && Math.abs(delta) < innerHeight) window.scrollBy({top: delta, behavior: 'instant'});
       });

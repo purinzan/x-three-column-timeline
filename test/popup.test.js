@@ -5,11 +5,15 @@ const source = fs.readFileSync(require('node:path').join(__dirname, '../popup.js
 const tick = () => new Promise(resolve => setImmediate(resolve));
 async function setup(initial, failRead = false) {
   const settings = {disabled:true}, status = {}, writes = [];
+  const autoSettings={disabled:true};
+  const autoScroll={checked:false,addEventListener(_,fn){this.change=fn;}};
+  const autoSpeed={value:'normal',addEventListener(_,fn){this.change=fn;}};
   const modes = ['on','off'].map(value => ({value,checked:false,addEventListener(_, fn){this.change=fn;}}));
   const storage = {get:async()=>{if(failRead) throw Error(); return {x3tEnabled:initial};},set:async value=>writes.push(value)};
-  vm.runInNewContext(source, {document:{querySelector:s=>s==='#settings'?settings:status,querySelectorAll:()=>modes},chrome:{storage:{local:storage}}});
+  const elements={'#settings':settings,'#status':status,'#auto-settings':autoSettings,'#auto-scroll':autoScroll,'#auto-speed':autoSpeed};
+  vm.runInNewContext(source, {document:{querySelector:s=>elements[s],querySelectorAll:()=>modes},chrome:{storage:{local:storage}}});
   await tick();
-  return {settings,status,modes,writes,storage};
+  return {settings,status,modes,writes,storage,autoSettings,autoScroll,autoSpeed};
 }
 (async () => {
   const a = await setup(undefined);
@@ -26,6 +30,13 @@ async function setup(initial, failRead = false) {
   assert.match(a.status.textContent,/保存できません/);
   const b=await setup(false);
   assert.equal(b.modes[1].checked,true);
+  assert.equal(b.autoScroll.checked,false);
+  b.autoScroll.checked=true; b.autoSpeed.value='fast'; await b.autoScroll.change();
+  assert.equal(b.writes[0].x3tAutoScroll,true);
+  assert.equal(b.writes[0].x3tAutoSpeed,'fast');
+  b.storage.set=async()=>{throw Error();};
+  b.autoScroll.checked=false; await b.autoScroll.change();
+  assert.equal(b.autoScroll.checked,true);
   const c=await setup(undefined,true);
   assert.equal(c.settings.disabled,true);
   assert.match(c.status.textContent,/読み込めません/);
