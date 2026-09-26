@@ -1,3 +1,5 @@
+**日本語** | [English](README.en.md)
+
 # X 3-Column Timeline
 
 Xのホームを、余白を詰めた独立3列で表示する非公式Chrome拡張。**v0.8.5 / MIT**
