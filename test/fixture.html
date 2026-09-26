@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>X 3列スクロール回帰テスト</title>
+<link rel="stylesheet" href="../content.css?v=0.8.4">
+<style>
+body {margin:0;font:16px system-ui;background:#fff;color:#17212b}
+#controls {position:sticky;top:0;z-index:10;background:#eef6fc;padding:12px}
+button {padding:8px;margin-right:8px}
+main {width:600px;margin:auto}
+#virtual-stream {position:relative}
+[data-testid="cellInnerDiv"] {position:absolute;width:100%}
+article {box-sizing:border-box;padding:20px;background:linear-gradient(135deg,#f2f8ff,#fff)}
+article button {display:block;margin-top:16px}
+</style>
+<div id="controls"><button id="verify">配置を検証</button><button id="remount">投稿ノードを再生成</button><button id="expand">高さを変更</button><button id="visibility">非表示切替</button><output id="result">未検証</output><div id="stats"></div></div>
+<main role="main"><section data-testid="primaryColumn"><div><div id="virtual-stream"></div></div></section></main>
+<div id="unrelated"></div>
+<header role="banner"><nav><a href="/home">ホーム（検証用）</a><a href="/explore">検索</a><a href="/notifications">通知</a><a href="/i/chat">チャット</a><a href="/fixture-user" data-testid="AppTabBar_Profile_Link">プロフィール</a></nav></header>
+<script>
+let styleReads = 0;
+const originalComputedStyle = window.getComputedStyle;
+window.getComputedStyle = (...args) => { styleReads++; return originalComputedStyle(...args); };
+const controls = document.querySelector('#controls');
+const performanceButton = document.createElement('button');
+performanceButton.textContent = '差分更新テスト';
+controls.append(performanceButton);
+const replacementButton = document.createElement('button');
+replacementButton.textContent = 'タイムライン交換';
+controls.append(replacementButton);
+const fixtureVisibility = new URLSearchParams(location.search).has('hidden');
+let hiddenMode = fixtureVisibility ? 'display' : 'visible';
+let host = document.querySelector('#virtual-stream');
+const heights = new Map(), nodes = new Map();
+const streamingFixture = new URLSearchParams(location.search).has('streaming');
+const packingFixture = new URLSearchParams(location.search).has('packing');
+const stagedFixture = new URLSearchParams(location.search).has('staged');
+let mediaReady = false;
+const stagedHeights = [600,180,190,550,200,620,170,580,210,600,220,640];
+let count = stagedFixture ? 2 : packingFixture ? 6 : streamingFixture ? 2 : 18, batches = 1, frame = 0, expanded = false, removed = 0;
+if (streamingFixture) {
+  const append = document.createElement('button');
+  append.textContent = '4件を追加';
+  append.onclick = () => { count += 4; schedule(); };
+  controls.append(append);
+}
+const ro = new ResizeObserver(entries => {
+  for (const e of entries) heights.set(Number(e.target.dataset.index), e.borderBoxSize[0].blockSize);
+  schedule();
+});
+function schedule() { if (!frame) frame = requestAnimationFrame(render); }
+function create(index) {
+  const cell = document.createElement('div');
+  cell.dataset.testid = 'cellInnerDiv'; cell.dataset.index = index;
+  cell.innerHTML = '<div><article data-testid="tweet"><a href="/fixture/status/'+index+'"><time>投稿 '+index+'</time></a><p>テスト用の投稿。実際のアカウントや通信は使いません。</p><button>操作 '+index+'</button></article></div>';
+  cell.querySelector('article').style.minHeight = (150 + index % 4 * 65 + (expanded && index % 3 === 0 ? 160 : 0))+'px';
+  if (packingFixture) cell.querySelector('article').style.minHeight = [180,190,600,200,550,620][index] + 'px';
+  if (stagedFixture) cell.querySelector('article').style.minHeight = (mediaReady ? stagedHeights[index] : 180) + 'px';
+  if (index === 1) {
+    cell.querySelector('article').style.display = hiddenMode === 'display' ? 'none' : '';
+    cell.querySelector('article').style.visibility = hiddenMode === 'visibility' ? 'hidden' : '';
+  }
+  nodes.set(index, cell); ro.observe(cell);
+  return cell;
+}
+function render() {
+  frame = 0;
+  let y = 0;
+  const top = scrollY - host.offsetTop;
+  for (let i = 0; i < count; i++) {
+    const h = heights.get(i) ?? 250;
+    // Staged packing test requires all 12 candidate cards mounted. The normal
+    // fixture retains its smaller overscan to exercise native recycling.
+    const visible = y + h > top - 1200 && y < top + innerHeight + (stagedFixture ? 5000 : 1800);
+    let cell = nodes.get(i);
+    if (visible && !cell) cell = create(i);
+    if (visible) {
+      cell.style.transform = 'translateY('+y+'px)';
+      if (!cell.isConnected) {
+        const after = Array.from(host.children).find(e => Number(e.dataset.index) > i);
+        host.insertBefore(cell, after || null);
+      }
+    } else if (cell) { ro.unobserve(cell); cell.remove(); nodes.delete(i); removed++; }
+    y += h;
+  }
+  host.style.height = y+'px';
+  if (!stagedFixture && !packingFixture && !streamingFixture && y - top - innerHeight < 700 && count < 180) { count += 18; batches++; schedule(); }
+  document.querySelector('#stats').textContent = '取得 '+count+'件 / '+batches+'回、描画 '+nodes.size+'件、再利用のため削除 '+removed+'件';
+}
+window.addEventListener('scroll', schedule, {passive:true});
+performanceButton.onclick = async () => {
+  styleReads = 0;
+  document.querySelector('#unrelated').textContent = String(Date.now());
+  await new Promise(resolve => setTimeout(resolve, 200));
+  const unrelatedReads = styleReads;
+  styleReads = 0;
+  const article = Array.from(host.querySelectorAll('article')).find(el => el.offsetHeight > 0);
+  article.style.minHeight = (article.offsetHeight + 1) + 'px';
+  await new Promise(resolve => setTimeout(resolve, 200));
+  document.querySelector('#result').textContent =
+    (unrelatedReads === 0 && styleReads > 0 && styleReads <= 3 ? 'PASS' : 'FAIL') +
+    ': 非関連変更 ' + unrelatedReads + '件 / 1投稿変更 ' + styleReads + '件の表示判定';
+};
+replacementButton.onclick = () => {
+  const next = host.cloneNode(false);
+  ro.disconnect(); host.replaceWith(next); host = next; nodes.clear(); schedule();
+};
+document.querySelector('#visibility').onclick = () => {
+  hiddenMode = hiddenMode === 'display' ? 'visible' : hiddenMode === 'visible' ? 'visibility' : 'display';
+  const article = nodes.get(1)?.querySelector('article');
+  if (article) {
+    article.style.display = hiddenMode === 'display' ? 'none' : '';
+    article.style.visibility = hiddenMode === 'visibility' ? 'hidden' : '';
+  }
+};
+document.querySelector('#remount').onclick = () => {
+  for (const cell of nodes.values()) {ro.unobserve(cell);cell.remove();}
+  nodes.clear(); schedule();
+};
+document.querySelector('#expand').onclick = () => {
+  expanded = !expanded;
+  for (const [i,cell] of nodes) cell.querySelector('article').style.minHeight = (150+i%4*65+(expanded&&i%3===0?160:0))+'px';
+};
+document.querySelector('#verify').onclick = () => {
+  const rows = new Map(); const failures = [];
+  const visualCells = Array.from(host.children).filter(cell => {
+    if (!cell.classList.contains('x3t-empty')) return true;
+    if (cell.getBoundingClientRect().height !== 0) failures.push('非表示の枠が残る');
+    return false;
+  }).sort((a,b) => {
+    const aa=a.firstElementChild.getBoundingClientRect(), bb=b.firstElementChild.getBoundingClientRect();
+    return Math.abs(aa.y-bb.y)>2 ? aa.y-bb.y : aa.x-bb.x;
+  });
+  for (const cell of visualCells) {
+    const card = cell.firstElementChild;
+    const box = card.getBoundingClientRect();
+    const col = Number(cell.style.getPropertyValue('--x3t-column'));
+    if (!cell.classList.contains('x3t-item')) failures.push('3列が未適用');
+    if (!cell.style.transform.startsWith('translateY')) failures.push('ネイティブ位置が破損');
+    if (box.width < innerWidth/3 - 20 || box.width > innerWidth/3) failures.push('幅が不正');
+    if (col === 0) rows.set(cell, {y:box.y,bottom:box.bottom});
+    else {
+      const row = Array.from(rows.values()).at(-1);
+      if (row) {
+        if (Math.abs(row.y-box.y)>2) failures.push('行のずれ');
+        row.bottom=Math.max(row.bottom,box.bottom);
+      }
+    }
+    const x=box.x+box.width/2, y=box.y+30;
+    if(y>100&&y<innerHeight&& !card.contains(document.elementFromPoint(x,y))) failures.push('操作領域が不一致');
+  }
+  const list=Array.from(rows.values());
+  if (streamingFixture && count === 6) {
+    const columns = [0, 0, 0];
+    for (const cell of visualCells) columns[Number(cell.style.getPropertyValue('--x3t-column'))]++;
+    if (columns.some(n => n !== 2) || list.length !== 2) failures.push('追加後の空き列が埋まらない');
+  }
+  if (packingFixture) {
+    const first = [0,1,3].map(i => nodes.get(i).firstElementChild.getBoundingClientRect().top);
+    if (first.some(y => Math.abs(y-first[0]) > 2)) failures.push('初回の短い3件が同じ行にならない');
+    const oldHeight = 600 + 620 + 20;
+    const actualHeight = Math.max(...visualCells.map(c=>c.firstElementChild.getBoundingClientRect().bottom)) - Math.min(...first);
+    if (actualHeight >= oldHeight - 300) failures.push('余白削減不足');
+  }
+  if (!packingFixture && streamingFixture && nodes.has(0) && nodes.has(1) && nodes.has(2) && nodes.has(3)) {
+    if (nodes.get(1).classList.contains('x3t-empty') !== (hiddenMode !== 'visible')) failures.push('非表示判定が不正');
+    const cards = (hiddenMode === 'visible' ? [0,1,2] : [0,2,3]).map(i=>nodes.get(i).firstElementChild.getBoundingClientRect());
+    if(cards.some(c=>Math.abs(c.y-cards[0].y)>2)) failures.push('空き枠が詰まらない');
+  }
+  for(let i=1;i<list.length;i++) if(list[i].y<list[i-1].bottom-2) failures.push('行が重なる');
+  document.querySelector('#result').textContent=failures.length?'FAIL: '+[...new Set(failures)].join(', '):'PASS: 3列・行配置・操作領域・標準位置';
+};
+render();
+</script>
+<script src="../layout.js?v=0.8.0"></script>
+<script src="../reading.js?v=0.8.4"></script>
+<script src="../content.js?v=0.8.2"></script>
+<script src="reading-test.js?v=0.8.4"></script>
+<script src="masonry-test.js"></script>
+<script src="sizing-test.js"></script>
+<script src="native-position-test.js"></script>
+<script src="nav-test.js?v=0.8.4"></script>
+</html>

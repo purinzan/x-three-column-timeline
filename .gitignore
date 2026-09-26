@@ -1,0 +1,11 @@
+.DS_Store
+.env
+.env.*
+*.pem
+*.key
+node_modules/
+__pycache__/
+test/performance-results/
+*.json.gz
+*.log
+screenshots/

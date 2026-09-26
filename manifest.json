@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "X 3-Column Timeline",
+  "version": "0.8.4",
+  "description": "Display the X home timeline in three readable columns.",
+  "permissions": ["storage"],
+  "action": {
+    "default_title": "X 3-Column Timeline",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "css": ["content.css"],
+      "js": ["layout.js", "reading.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
