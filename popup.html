@@ -8,11 +8,12 @@
   </head>
   <body>
     <h1>X 3列タイムライン</h1>
-    <label>
-      <input id="enabled" type="checkbox">
-      <span>ホームを3列表示する</span>
-    </label>
-    <p>Xの投稿操作はそのまま使えます。</p>
+    <fieldset id="settings" disabled>
+      <legend>表示を切り替え</legend>
+      <label><input type="radio" name="mode" value="on"><span>有効 <small>3列で表示</small></span></label>
+      <label><input type="radio" name="mode" value="off"><span>無効 <small>X本来の表示</small></span></label>
+    </fieldset>
+    <p id="status" role="status" aria-live="polite">設定を読み込み中…</p>
     <script src="popup.js"></script>
   </body>
 </html>

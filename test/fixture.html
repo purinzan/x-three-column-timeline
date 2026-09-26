@@ -13,12 +13,17 @@ main {width:600px;margin:auto}
 [data-testid="cellInnerDiv"] {position:absolute;width:100%}
 article {box-sizing:border-box;padding:20px;background:linear-gradient(135deg,#f2f8ff,#fff)}
 article button {display:block;margin-top:16px}
+html.demo #controls {display:none}
+html.demo body::before {content:'X 3-Column Timeline · DEMO（模擬投稿）';display:block;padding:20px 24px;background:#eef6fc;font-weight:700}
+html.demo header nav {display:flex;flex-direction:column;gap:24px;padding:24px}
+html.demo header a {color:inherit;text-decoration:none;font-weight:600}
 </style>
 <div id="controls"><button id="verify">配置を検証</button><button id="remount">投稿ノードを再生成</button><button id="expand">高さを変更</button><button id="visibility">非表示切替</button><output id="result">未検証</output><div id="stats"></div></div>
 <main role="main"><section data-testid="primaryColumn"><div><div id="virtual-stream"></div></div></section></main>
 <div id="unrelated"></div>
 <header role="banner"><nav><a href="/home">ホーム（検証用）</a><a href="/explore">検索</a><a href="/notifications">通知</a><a href="/i/chat">チャット</a><a href="/fixture-user" data-testid="AppTabBar_Profile_Link">プロフィール</a></nav></header>
 <script>
+if (new URLSearchParams(location.search).has('demo')) document.documentElement.classList.add('demo');
 let styleReads = 0;
 const originalComputedStyle = window.getComputedStyle;
 window.getComputedStyle = (...args) => { styleReads++; return originalComputedStyle(...args); };

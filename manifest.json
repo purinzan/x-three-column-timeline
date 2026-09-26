@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "X 3-Column Timeline",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "Display the X home timeline in three readable columns.",
   "permissions": ["storage"],
   "action": {
