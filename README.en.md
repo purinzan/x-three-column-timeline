@@ -1,4 +1,4 @@
-[日本語](README.md) | **English**
+[日本語](README.md) | **English** | [简体中文](README.zh-CN.md) | [한국어](README.ko.md)
 
 # X 3-Column Timeline
 
